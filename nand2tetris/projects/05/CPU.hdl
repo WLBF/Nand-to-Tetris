@@ -13,10 +13,10 @@
  * refer to CPU-resident registers, while M refers to the external
  * memory location addressed by A, i.e. to Memory[A]. The inM input
  * holds the value of this location. If the current instruction needs
- * to write a value to M, the value is placed in outM, the address
+ * to write a value to M, the value is placed in outALU, the address
  * of the target location is placed in the addressM output, and the
  * writeM control bit is asserted. (When writeM==0, any value may
- * appear in outM). The outM and writeM outputs are combinational:
+ * appear in outALU). The outALU and writeM outputs are combinational:
  * they are affected instantaneously by the execution of the current
  * instruction. The addressM and pc outputs are clocked: although they
  * are affected by the execution of the current instruction, they commit
@@ -43,48 +43,49 @@ CHIP CPU {
     // C instruction or A instruction
     // M is destination?
     // Write to M?
-    And(a=instruction[15], b=instruction[3], out=writeM)
+    And(a=instruction[15], b=instruction[3], out=writeM);
 
-    // Write outM or instruction to A?
-    Mux16(a=instruction, b=outM, sel=instruction[15], out=inA)
+    // Write outALU or instruction to A?
+    Mux16(a=instruction, b=outALU, sel=instruction[15], out=inA);
 
     // A instruction or C instruction and register A is destination
-    Not(in=instruction[15], out=nota)
-    Or(a=nota, b=instruction[5], out=CtlAload)
+    Not(in=instruction[15], out=notA);
+    Or(a=notA, b=instruction[5], out=CtlAload);
 
     // Register A
-    Register(in=inA, out=addressM, load=CtlAload)
+    Register(in=inA, load=CtlAload, out[0..14]=addressM, out=outA);
 
     // C instruction and register D is destination
-    And(a=instruction[15], b=instruction[4], out=CtlDload)
+    And(a=instruction[15], b=instruction[4], out=CtlDload);
 
     // Register D
-    Register(in=outALU, out=inALUx, load=CtlDload)
+    DRegister(in=outALU, load=CtlDload, out=inALUx);
 
     // ALU y input A or M?
-    Mux16(a=addressM, b=inM, sel=instruction[12], out=inALUy)
+    Mux16(a=outA, b=inM, sel=instruction[12], out=inALUy);
 
-    ALU(x=inALUx, y=inALUy, zx=instruction[6], nx=instruction[7], zy=instruction[8],
-        ny=instruction[9], f=instruction[10], no=instruction[11], out=outM, zr=outzr, ng=outng)
+    ALU(x=inALUx, y=inALUy, zx=instruction[11], nx=instruction[10], zy=instruction[9],
+        ny=instruction[8], f=instruction[7], no=instruction[6], out=outALU, out=outM, zr=outzr, ng=outng);
 
-    // outM < 0
-    And(a=instruction[2], b=outng, out=jumpFlagA)
+    // outM < 0 and j1==1
+    And(a=instruction[2], b=outng, out=jumpFlagA);
 
-    // outM = 0
-    And(a=instruction[1], b=outzr, out=jumpFlagB)
+    // outM = 0 and j2==1
+    And(a=instruction[1], b=outzr, out=jumpFlagB);
 
-    // outM > 0
-    Or(a=outng b=outzr, out=outbz)
-    Not(in=outbz, out=bz)
-    And(a=instruction[o], b=bz, out=jumpFlagC)
+    // outM > 0 and j3==1
+    Or(a=outng, b=outzr, out=outbz);
+    Not(in=outbz, out=bz);
+    And(a=instruction[0], b=bz, out=jumpFlagC);
 
     // Jump?
-    Or(a=jumpFlagA b=jumpFlagA, out=tmp)
-    Or(a=tmp b=jumpFlagC, out=jumpFlag)
+    Or(a=jumpFlagA, b=jumpFlagB, out=tmp);
+    Or(a=tmp, b=jumpFlagC, out=jumpFlag);
+    And(a=jumpFlag, b=instruction[15], out=loadFlag);
 
     // Increment?
-    Not(in=jumpFlag, out=incFlag)
+    Not(in=loadFlag, out=incFlag);
 
-    PC(in=addressM, load=jumpFlag, inc=incFlag, reset=reset, out=pc)
+    PC(in=outA, load=loadFlag, inc=incFlag, reset=reset, out[0..14]=pc);
 
 }
