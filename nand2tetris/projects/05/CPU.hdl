@@ -53,7 +53,7 @@ CHIP CPU {
     Or(a=notA, b=instruction[5], out=CtlAload);
 
     // Register A
-    Register(in=inA, load=CtlAload, out[0..14]=addressM, out=outA);
+    ARegister(in=inA, load=CtlAload, out[0..14]=addressM, out=outA);
 
     // C instruction and register D is destination
     And(a=instruction[15], b=instruction[4], out=CtlDload);
