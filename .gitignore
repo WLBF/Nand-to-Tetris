@@ -3,3 +3,6 @@
 *.pdf
 *.hack
 *.dat
+nand2tetrisdoc
+nand2tetris/tools
+.DS_Store
